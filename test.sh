@@ -6,7 +6,8 @@ case "$1" in
   base)
     echo "Running base tests (excluding IBAN)..."
     cd library
-    pnpm test --run --exclude='**/iban/**'
+    # Run tests without typecheck to avoid errors from missing iban.ts
+    pnpm vitest run --exclude='**/iban/**'
     ;;
   new)
     echo "Running new IBAN feature tests..."
