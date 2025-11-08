@@ -57,6 +57,11 @@ export const HEX_COLOR_REGEX: RegExp =
   /^#(?:[\da-fA-F]{3,4}|[\da-fA-F]{6}|[\da-fA-F]{8})$/u;
 
 /**
+ * [IBAN](https://en.wikipedia.org/wiki/International_Bank_Account_Number) regex.
+ */
+export const IBAN_REGEX: RegExp = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/u;
+
+/**
  * [IMEI](https://en.wikipedia.org/wiki/International_Mobile_Equipment_Identity) regex.
  */
 export const IMEI_REGEX: RegExp = /^\d{15}$|^\d{2}-\d{6}-\d{6}-\d$/u;

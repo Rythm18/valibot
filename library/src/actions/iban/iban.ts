@@ -7,7 +7,7 @@ import type {
 import { _addIssue } from '../../utils/index.ts';
 
 /**
- * IBAN issue type.
+ * IBAN issue interface.
  */
 export interface IbanIssue<TInput extends string> extends BaseIssue<TInput> {
   /**
@@ -27,13 +27,13 @@ export interface IbanIssue<TInput extends string> extends BaseIssue<TInput> {
    */
   readonly received: `"${string}"`;
   /**
-   * The IBAN requirement.
+   * The validation function.
    */
   readonly requirement: (input: string) => boolean;
 }
 
 /**
- * IBAN action type.
+ * IBAN action interface.
  */
 export interface IbanAction<
   TInput extends string,
@@ -52,13 +52,46 @@ export interface IbanAction<
    */
   readonly expects: null;
   /**
-   * The IBAN requirement.
+   * The validation function.
    */
   readonly requirement: (input: string) => boolean;
   /**
    * The error message.
    */
   readonly message: TMessage;
+}
+
+/**
+ * Validates an IBAN using the mod-97 checksum algorithm.
+ *
+ * @param iban The IBAN to validate.
+ *
+ * @returns Whether the IBAN is valid.
+ */
+function validateIbanChecksum(iban: string): boolean {
+  // Remove spaces only (keep case to validate later)
+  const normalized = iban.replace(/\s/g, '');
+
+  // Check format with regex (requires uppercase)
+  if (!IBAN_REGEX.test(normalized)) {
+    return false;
+  }
+
+  // Move first 4 characters to the end
+  const rearranged = normalized.slice(4) + normalized.slice(0, 4);
+
+  // Replace letters with numbers (A=10, B=11, ..., Z=35)
+  const numericString = rearranged.replace(/[A-Z]/g, (char) =>
+    (char.charCodeAt(0) - 55).toString()
+  );
+
+  // Calculate mod 97
+  let remainder = 0;
+  for (let i = 0; i < numericString.length; i++) {
+    remainder = (remainder * 10 + parseInt(numericString[i], 10)) % 97;
+  }
+
+  return remainder === 1;
 }
 
 /**
@@ -90,39 +123,7 @@ export function iban(
     reference: iban,
     async: false,
     expects: null,
-    requirement(input) {
-      // Check basic format with regex
-      if (!IBAN_REGEX.test(input)) {
-        return false;
-      }
-
-      // Validate IBAN using mod-97 checksum algorithm
-      // Move first 4 characters to end
-      const rearranged = input.slice(4) + input.slice(0, 4);
-
-      // Replace letters with numbers (A=10, B=11, ..., Z=35)
-      const numericString = rearranged
-        .split('')
-        .map((char) => {
-          const code = char.charCodeAt(0);
-          // A-Z: 65-90 -> 10-35
-          if (code >= 65 && code <= 90) {
-            return code - 55;
-          }
-          // 0-9: return as is
-          return char;
-        })
-        .join('');
-
-      // Calculate mod 97
-      let remainder = numericString;
-      while (remainder.length > 2) {
-        const block = remainder.slice(0, 9);
-        remainder = (parseInt(block, 10) % 97) + remainder.slice(block.length);
-      }
-
-      return parseInt(remainder, 10) % 97 === 1;
-    },
+    requirement: validateIbanChecksum,
     message,
     '~run'(dataset, config) {
       if (dataset.typed && !this.requirement(dataset.value)) {

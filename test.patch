@@ -1,0 +1,276 @@
+diff --git a/library/src/actions/iban/iban.test-d.ts b/library/src/actions/iban/iban.test-d.ts
+new file mode 100644
+index 00000000..07fb0ea6
+--- /dev/null
++++ b/library/src/actions/iban/iban.test-d.ts
+@@ -0,0 +1,41 @@
++import { describe, expectTypeOf, test } from 'vitest';
++import type { InferInput, InferIssue, InferOutput } from '../../types/index.ts';
++import { iban, type IbanAction, type IbanIssue } from './iban.ts';
++
++describe('iban', () => {
++  describe('should return action object', () => {
++    test('with undefined message', () => {
++      type Action = IbanAction<string, undefined>;
++      expectTypeOf(iban()).toEqualTypeOf<Action>();
++      expectTypeOf(iban(undefined)).toEqualTypeOf<Action>();
++    });
++
++    test('with string message', () => {
++      expectTypeOf(iban('message')).toEqualTypeOf<
++        IbanAction<string, 'message'>
++      >();
++    });
++
++    test('with function message', () => {
++      expectTypeOf(iban(() => 'message')).toEqualTypeOf<
++        IbanAction<string, () => string>
++      >();
++    });
++  });
++
++  describe('should infer correct types', () => {
++    type Action = IbanAction<string, undefined>;
++
++    test('of input', () => {
++      expectTypeOf<InferInput<Action>>().toEqualTypeOf<string>();
++    });
++
++    test('of output', () => {
++      expectTypeOf<InferOutput<Action>>().toEqualTypeOf<string>();
++    });
++
++    test('of issue', () => {
++      expectTypeOf<InferIssue<Action>>().toEqualTypeOf<IbanIssue<string>>();
++    });
++  });
++});
+diff --git a/library/src/actions/iban/iban.test.ts b/library/src/actions/iban/iban.test.ts
+new file mode 100644
+index 00000000..3483f5f1
+--- /dev/null
++++ b/library/src/actions/iban/iban.test.ts
+@@ -0,0 +1,195 @@
++import { describe, expect, test } from 'vitest';
++import type { StringIssue } from '../../schemas/index.ts';
++import { expectActionIssue, expectNoActionIssue } from '../../vitest/index.ts';
++import { iban, type IbanAction, type IbanIssue } from './iban.ts';
++
++describe('iban', () => {
++  describe('should return action object', () => {
++    const baseAction: Omit<IbanAction<string, never>, 'message'> = {
++      kind: 'validation',
++      type: 'iban',
++      reference: iban,
++      expects: null,
++      requirement: expect.any(Function),
++      async: false,
++      '~run': expect.any(Function),
++    };
++
++    test('with undefined message', () => {
++      const action: IbanAction<string, undefined> = {
++        ...baseAction,
++        message: undefined,
++      };
++      expect(iban()).toStrictEqual(action);
++      expect(iban(undefined)).toStrictEqual(action);
++    });
++
++    test('with string message', () => {
++      expect(iban('message')).toStrictEqual({
++        ...baseAction,
++        message: 'message',
++      } satisfies IbanAction<string, string>);
++    });
++
++    test('with function message', () => {
++      const message = () => 'message';
++      expect(iban(message)).toStrictEqual({
++        ...baseAction,
++        message,
++      } satisfies IbanAction<string, typeof message>);
++    });
++  });
++
++  describe('should return dataset without issues', () => {
++    const action = iban();
++
++    test('for untyped inputs', () => {
++      const issues: [StringIssue] = [
++        {
++          kind: 'schema',
++          type: 'string',
++          input: null,
++          expected: 'string',
++          received: 'null',
++          message: 'message',
++        },
++      ];
++      expect(
++        action['~run']({ typed: false, value: null, issues }, {})
++      ).toStrictEqual({
++        typed: false,
++        value: null,
++        issues,
++      });
++    });
++
++    test('for valid IBANs from various countries', () => {
++      expectNoActionIssue(action, [
++        // Germany
++        'DE89370400440532013000',
++        'DE44500105175407324931',
++        // United Kingdom
++        'GB82WEST12345698765432',
++        'GB33BUKB20201555555555',
++        // France
++        'FR1420041010050500013M02606',
++        'FR7630006000011234567890189',
++        // Spain
++        'ES9121000418450200051332',
++        'ES7921000813610123456789',
++        // Italy
++        'IT60X0542811101000000123456',
++        // Netherlands
++        'NL91ABNA0417164300',
++        'NL39RABO0300065264',
++        // Belgium
++        'BE68539007547034',
++        'BE71096123456769',
++        // Switzerland
++        'CH9300762011623852957',
++        'CH5604835012345678009',
++      ]);
++    });
++
++    test('for valid IBANs with spaces', () => {
++      expectNoActionIssue(action, [
++        'DE89 3704 0044 0532 0130 00',
++        'GB82 WEST 1234 5698 7654 32',
++        'FR14 2004 1010 0505 0001 3M02 606',
++        'ES91 2100 0418 4502 0005 1332',
++        'NL91 ABNA 0417 1643 00',
++        'BE68 5390 0754 7034',
++      ]);
++    });
++
++    test('for valid IBANs with mixed spacing', () => {
++      expectNoActionIssue(action, [
++        'DE89 37040044 0532013000',
++        'GB82WEST 1234 56987654 32',
++        'NL91 ABNA0417164300',
++      ]);
++    });
++  });
++
++  describe('should return dataset with issues', () => {
++    const action = iban('message');
++    const baseIssue: Omit<IbanIssue<string>, 'input' | 'received'> = {
++      kind: 'validation',
++      type: 'iban',
++      expected: null,
++      message: 'message',
++      requirement: expect.any(Function),
++    };
++
++    test('for empty strings', () => {
++      expectActionIssue(action, baseIssue, ['', ' ', '\n']);
++    });
++
++    test('for IBANs with invalid checksum', () => {
++      expectActionIssue(action, baseIssue, [
++        // Valid format but invalid checksum (changed one digit)
++        'DE89370400440532013001', // Last digit changed
++        'GB82WEST12345698765433', // Last digit changed
++        'FR1420041010050500013M02607', // Last digit changed
++        'ES9121000418450200051333', // Last digit changed
++      ]);
++    });
++
++    test('for IBANs with invalid country code', () => {
++      expectActionIssue(action, baseIssue, [
++        'ZZ89370400440532013000', // Invalid country
++        'A189370400440532013000', // Single letter
++        '1289370400440532013000', // Starts with digit
++        'D989370400440532013000', // Single letter
++      ]);
++    });
++
++    test('for IBANs with invalid check digits', () => {
++      expectActionIssue(action, baseIssue, [
++        'DEAA370400440532013000', // Letters instead of digits
++        'DE1A370400440532013000', // Letter in check digits
++        'DEXX370400440532013000', // Invalid check digits
++      ]);
++    });
++
++    test('for IBANs that are too short', () => {
++      expectActionIssue(action, baseIssue, [
++        'DE8937040044053', // Too short
++        'GB82WEST1234', // Too short
++        'FR142004', // Too short
++      ]);
++    });
++
++    test('for IBANs that are too long', () => {
++      expectActionIssue(action, baseIssue, [
++        'DE893704004405320130001234567890123', // Too long (>34 chars)
++      ]);
++    });
++
++    test('for IBANs with invalid characters', () => {
++      expectActionIssue(action, baseIssue, [
++        'DE89@70400440532013000', // Special character
++        'DE89 3704-0044-0532-0130-00', // Hyphens
++        'DE89_3704_0044_0532_0130_00', // Underscores
++        'GB82WEST12345698765432!', // Exclamation mark
++      ]);
++    });
++
++    test('for IBANs with lowercase letters', () => {
++      expectActionIssue(action, baseIssue, [
++        'de89370400440532013000',
++        'gb82west12345698765432',
++        'fr1420041010050500013m02606',
++      ]);
++    });
++
++    test('for completely invalid inputs', () => {
++      expectActionIssue(action, baseIssue, [
++        'not-an-iban',
++        '123456789',
++        'ABCDEFGH',
++        'random string',
++      ]);
++    });
++  });
++});
+diff --git a/test.sh b/test.sh
+new file mode 100755
+index 00000000..682cbc20
+--- /dev/null
++++ b/test.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++
++set -e
++
++case "$1" in
++  base)
++    echo "Running base tests..."
++    cd library
++    pnpm test --run
++    ;;
++  new)
++    echo "Running new IBAN feature tests..."
++    cd library
++    pnpm test --run src/actions/iban/
++    ;;
++  *)
++    echo "Usage: $0 {base|new}"
++    echo "  base - Run base repository tests"
++    echo "  new  - Run new IBAN feature tests"
++    exit 1
++    ;;
++esac
