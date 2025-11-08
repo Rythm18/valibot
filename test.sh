@@ -6,29 +6,42 @@ case "$1" in
   base)
     echo "Running base tests..."
     cd library
-    # If iban tests exist, move them outside library to prevent ANY module resolution issues
+    
+    # Strategy: Temporarily move iban directory to prevent module resolution issues
+    IBAN_MOVED=false
+    BACKUP_DIR="/tmp/valibot-iban-backup"
+    
     if [ -d "src/actions/iban" ]; then
-      echo "  (temporarily hiding IBAN tests)"
-      mkdir -p /tmp/iban-temp
-      mv src/actions/iban /tmp/iban-temp/
-      # Remove iban export if present
-      if grep -q "iban" src/actions/index.ts 2>/dev/null; then
-        sed -i.bak "/export \* from '.\/iban\/index.ts'/d" src/actions/index.ts
+      echo "  [Hiding IBAN tests]"
+      rm -rf "$BACKUP_DIR"
+      mkdir -p "$BACKUP_DIR"
+      mv src/actions/iban "$BACKUP_DIR/"
+      
+      # Remove iban export from actions/index.ts
+      if grep -F "iban" src/actions/index.ts >/dev/null 2>&1; then
+        grep -v "iban" src/actions/index.ts > src/actions/index.ts.tmp
+        mv src/actions/index.ts.tmp src/actions/index.ts
       fi
+      IBAN_MOVED=true
     fi
     
-    # Run all base tests
+    # Run base tests
     pnpm exec vitest run
+    TEST_RESULT=$?
     
-    # Restore iban if it was moved
-    if [ -d "/tmp/iban-temp/iban" ]; then
-      echo "  (restoring IBAN tests)"
-      if [ -f "src/actions/index.ts.bak" ]; then
-        mv src/actions/index.ts.bak src/actions/index.ts
+    # Always restore iban directory if we moved it
+    if [ "$IBAN_MOVED" = true ] && [ -d "$BACKUP_DIR/iban" ]; then
+      echo "  [Restoring IBAN tests]"
+      mv "$BACKUP_DIR/iban" src/actions/
+      rm -rf "$BACKUP_DIR"
+      
+      # Restore iban export (add after hexColor line)
+      if ! grep -F "iban" src/actions/index.ts >/dev/null 2>&1; then
+        sed -i "/export \* from '.\/hexColor\/index.ts';/a export * from './iban/index.ts';" src/actions/index.ts
       fi
-      mv /tmp/iban-temp/iban src/actions/
-      rm -rf /tmp/iban-temp
     fi
+    
+    exit $TEST_RESULT
     ;;
   new)
     echo "Running new IBAN feature tests..."
