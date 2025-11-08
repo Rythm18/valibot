@@ -1,5 +1,12 @@
 # Add IBAN Validation Action
 
+## Setup Requirements
+
+Before testing, ensure dependencies are installed:
+```bash
+pnpm install
+```
+
 ## Problem Brief
 
 Implement an IBAN (International Bank Account Number) validation action for Valibot. Users need to validate bank account numbers in international formats, commonly used for cross-border payments and financial applications. The validator should verify both format and checksum correctness, accept IBANs with or without spaces, and only accept uppercase input (case-sensitive).
