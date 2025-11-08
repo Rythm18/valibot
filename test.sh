@@ -6,22 +6,25 @@ case "$1" in
   base)
     echo "Running base tests (excluding IBAN)..."
     cd library
-    # Only hide iban if the implementation exists (to avoid module resolution errors)
-    # If only test files exist without iban.ts, tests will naturally fail when run
-    if [ -f "src/actions/iban/iban.ts" ]; then
-      # Implementation exists - temporarily hide to test base functionality
+    # If iban directory exists, we MUST hide it to prevent vitest from collecting broken imports
+    # This applies whether implementation exists or not - test files alone break module resolution
+    if [ -d "src/actions/iban" ]; then
       mkdir -p /tmp/iban-backup
       mv src/actions/iban /tmp/iban-backup/
-      # Remove the iban export line  
-      sed -i.bak "/export \* from '.\/iban\/index.ts'/d" src/actions/index.ts
+      # Also remove iban export if it exists
+      if grep -q "iban" src/actions/index.ts; then
+        sed -i.bak "/export \* from '.\/iban\/index.ts'/d" src/actions/index.ts
+      fi
       pnpm exec vitest run
       # Restore everything
-      mv src/actions/index.ts.bak src/actions/index.ts
+      if [ -f "src/actions/index.ts.bak" ]; then
+        mv src/actions/index.ts.bak src/actions/index.ts
+      fi
       mv /tmp/iban-backup/iban src/actions/
       rm -rf /tmp/iban-backup
     else
-      # No implementation yet - run tests normally (will exclude iban via vitest config if needed)
-      pnpm exec vitest run --exclude='**/iban/**'
+      # No iban directory at all - run tests normally
+      pnpm exec vitest run
     fi
     ;;
   new)
