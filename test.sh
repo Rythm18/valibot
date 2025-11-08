@@ -6,13 +6,14 @@ case "$1" in
   base)
     echo "Running base tests (excluding IBAN)..."
     cd library
-    # Run tests without typecheck to avoid errors from missing iban.ts
-    pnpm vitest run --exclude='**/iban/**'
+    # Run without typecheck since iban.ts doesn't exist yet during test.patch phase
+    pnpm exec vitest run --exclude='**/iban/**'
     ;;
   new)
     echo "Running new IBAN feature tests..."
     cd library
-    pnpm test --run src/actions/iban/
+    # Run with typecheck to validate types (iban.ts exists after solution.patch)
+    pnpm exec vitest --typecheck run src/actions/iban/
     ;;
   *)
     echo "Usage: $0 {base|new}"
