@@ -1,0 +1,235 @@
+diff --git a/library/src/actions/iban/iban.test-d.ts b/library/src/actions/iban/iban.test-d.ts
+new file mode 100644
+index 00000000..3bf14f19
+--- /dev/null
++++ b/library/src/actions/iban/iban.test-d.ts
+@@ -0,0 +1,17 @@
++import { describe, expectTypeOf, test } from 'vitest';
++import type { InferInput, InferIssue, InferOutput } from '../../types/index.ts';
++import { iban, type IbanAction, type IbanIssue } from './iban.ts';
++
++describe('iban', () => {
++  test('should accept string input', () => {
++    expectTypeOf<InferInput<IbanAction<string, undefined>>>().toEqualTypeOf<string>();
++  });
++
++  test('should return string output', () => {
++    expectTypeOf<InferOutput<IbanAction<string, undefined>>>().toEqualTypeOf<string>();
++  });
++
++  test('should infer correct issue type', () => {
++    expectTypeOf<InferIssue<IbanAction<string, undefined>>>().toEqualTypeOf<IbanIssue<string>>();
++  });
++});
+diff --git a/library/src/actions/iban/iban.test.ts b/library/src/actions/iban/iban.test.ts
+new file mode 100644
+index 00000000..29307f60
+--- /dev/null
++++ b/library/src/actions/iban/iban.test.ts
+@@ -0,0 +1,143 @@
++import { describe, expect, test } from 'vitest';
++import { expectActionIssue, expectNoActionIssue } from '../../vitest/index.ts';
++import { iban, type IbanIssue } from './iban.ts';
++
++describe('iban', () => {
++  describe('should accept valid IBANs', () => {
++    const action = iban();
++
++    test('from various countries', () => {
++      expectNoActionIssue(action, [
++        // Germany
++        'DE89370400440532013000',
++        'DE44500105175407324931',
++        // United Kingdom
++        'GB82WEST12345698765432',
++        'GB33BUKB20201555555555',
++        // France
++        'FR1420041010050500013M02606',
++        'FR7630006000011234567890189',
++        // Spain
++        'ES9121000418450200051332',
++        'ES7921000813610123456789',
++        // Italy
++        'IT60X0542811101000000123456',
++        // Netherlands
++        'NL91ABNA0417164300',
++        'NL39RABO0300065264',
++        // Belgium
++        'BE68539007547034',
++        'BE71096123456769',
++        // Switzerland
++        'CH9300762011623852957',
++        'CH5604835012345678009',
++      ]);
++    });
++
++    test('with spaces', () => {
++      expectNoActionIssue(action, [
++        'DE89 3704 0044 0532 0130 00',
++        'GB82 WEST 1234 5698 7654 32',
++        'FR14 2004 1010 0505 0001 3M02 606',
++        'ES91 2100 0418 4502 0005 1332',
++        'NL91 ABNA 0417 1643 00',
++        'BE68 5390 0754 7034',
++      ]);
++    });
++
++    test('with mixed spacing', () => {
++      expectNoActionIssue(action, [
++        'DE89 37040044 0532013000',
++        'GB82WEST 1234 56987654 32',
++        'NL91 ABNA0417164300',
++      ]);
++    });
++  });
++
++  describe('should reject invalid IBANs', () => {
++    const action = iban('Invalid IBAN');
++    const baseIssue: Omit<IbanIssue<string>, 'input' | 'received'> = {
++      kind: 'validation',
++      type: 'iban',
++      expected: null,
++      message: 'Invalid IBAN',
++      requirement: expect.any(Function),
++    };
++
++    test('with empty strings', () => {
++      expectActionIssue(action, baseIssue, ['', ' ', '\n']);
++    });
++
++    test('with invalid checksum', () => {
++      expectActionIssue(action, baseIssue, [
++          'DE89370400440532013001', // Last digit changed
++          'GB82WEST12345698765433', // Last digit changed
++          'FR1420041010050500013M02607', // Last digit changed
++          'ES9121000418450200051333', // Last digit changed
++        ]
++      );
++    });
++
++    test('with invalid country code', () => {
++      expectActionIssue(action, baseIssue, [
++          'ZZ89370400440532013000', // Invalid country
++          'A189370400440532013000', // Single letter
++          '1289370400440532013000', // Starts with digit
++          'D989370400440532013000', // Single letter
++        ]
++      );
++    });
++
++    test('with invalid check digits', () => {
++      expectActionIssue(action, baseIssue, [
++          'DEAA370400440532013000', // Letters instead of digits
++          'DE1A370400440532013000', // Letter in check digits
++          'DEXX370400440532013000', // Invalid check digits
++        ]
++      );
++    });
++
++    test('that are too short', () => {
++      expectActionIssue(action, baseIssue, [
++          'DE8937040044053', // Too short
++          'GB82WEST1234', // Too short
++          'FR142004', // Too short
++        ]
++      );
++    });
++
++    test('that are too long', () => {
++      expectActionIssue(action, baseIssue, ['DE893704004405320130001234567890123'] // Too long (>34 chars)
++      );
++    });
++
++    test('with invalid characters', () => {
++      expectActionIssue(action, baseIssue, [
++          'DE89@70400440532013000', // Special character
++          'DE89 3704-0044-0532-0130-00', // Hyphens
++          'DE89_3704_0044_0532_0130_00', // Underscores
++          'GB82WEST12345698765432!', // Exclamation mark
++        ]
++      );
++    });
++
++    test('with lowercase letters', () => {
++      expectActionIssue(action, baseIssue, [
++          'de89370400440532013000',
++          'gb82west12345698765432',
++          'fr1420041010050500013m02606',
++        ]
++      );
++    });
++
++    test('with completely invalid format', () => {
++      expectActionIssue(action, baseIssue, [
++          'not-an-iban',
++          '123456789',
++          'ABCDEFGH',
++          'random string',
++        ]
++      );
++    });
++  });
++});
+diff --git a/test.sh b/test.sh
+new file mode 100755
+index 00000000..6e917f9a
+--- /dev/null
++++ b/test.sh
+@@ -0,0 +1,57 @@
++#!/bin/bash
++
++set -e
++
++case "$1" in
++  base)
++    echo "Running base tests..."
++    cd library
++    
++    # Strategy: Temporarily move iban directory to prevent module resolution issues
++    IBAN_MOVED=false
++    BACKUP_DIR="/tmp/valibot-iban-backup"
++    
++    if [ -d "src/actions/iban" ]; then
++      echo "  [Hiding IBAN tests]"
++      rm -rf "$BACKUP_DIR"
++      mkdir -p "$BACKUP_DIR"
++      mv src/actions/iban "$BACKUP_DIR/"
++      
++      # Remove iban export from actions/index.ts
++      if grep -F "iban" src/actions/index.ts >/dev/null 2>&1; then
++        grep -v "iban" src/actions/index.ts > src/actions/index.ts.tmp
++        mv src/actions/index.ts.tmp src/actions/index.ts
++      fi
++      IBAN_MOVED=true
++    fi
++    
++    # Run base tests
++    pnpm exec vitest run
++    TEST_RESULT=$?
++    
++    # Always restore iban directory if we moved it
++    if [ "$IBAN_MOVED" = true ] && [ -d "$BACKUP_DIR/iban" ]; then
++      echo "  [Restoring IBAN tests]"
++      mv "$BACKUP_DIR/iban" src/actions/
++      rm -rf "$BACKUP_DIR"
++      
++      # Restore iban export (add after hexColor line)
++      if ! grep -F "iban" src/actions/index.ts >/dev/null 2>&1; then
++        sed -i "/export \* from '.\/hexColor\/index.ts';/a export * from './iban/index.ts';" src/actions/index.ts
++      fi
++    fi
++    
++    exit $TEST_RESULT
++    ;;
++  new)
++    echo "Running new IBAN feature tests..."
++    cd library
++    pnpm exec vitest --typecheck run src/actions/iban/
++    ;;
++  *)
++    echo "Usage: $0 {base|new}"
++    echo "  base - Run base repository tests"
++    echo "  new  - Run new IBAN feature tests"
++    exit 1
++    ;;
++esac
