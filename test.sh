@@ -4,9 +4,9 @@ set -e
 
 case "$1" in
   base)
-    echo "Running base tests..."
+    echo "Running base tests (excluding IBAN)..."
     cd library
-    pnpm test --run
+    pnpm test --run --exclude='**/iban/**'
     ;;
   new)
     echo "Running new IBAN feature tests..."
@@ -15,7 +15,7 @@ case "$1" in
     ;;
   *)
     echo "Usage: $0 {base|new}"
-    echo "  base - Run base repository tests"
+    echo "  base - Run base repository tests (excluding IBAN)"
     echo "  new  - Run new IBAN feature tests"
     exit 1
     ;;
