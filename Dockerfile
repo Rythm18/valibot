@@ -1,11 +1,10 @@
 FROM public.ecr.aws/x8v8d7g8/mars-base:latest
 WORKDIR /app
 
-# Copy repository files
+# Copy all source files  
 COPY . .
 
-# Install workspace dependencies at root (required for pnpm workspace)
+# Install dependencies at workspace root
 RUN pnpm install
 
-# Default to interactive shell (tests run from /app root via test.sh)
 CMD ["/bin/bash"]

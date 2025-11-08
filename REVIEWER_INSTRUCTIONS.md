@@ -1,35 +1,57 @@
 # Reviewer Instructions - IBAN Validation Feature
 
-## Important: Starting Point
+## Critical Setup Requirements
 
-**You MUST start from the `main` branch** before applying patches. The patches are generated relative to `main`, not the feature branch.
+### The Issue with Docker
+The repository you're testing is on a **feature branch** that already contains all IBAN code. When you build Docker from this branch, it copies everything, making patch application fail.
 
-## Step-by-Step Testing Workflow
+### Solution: Test Locally or Use Correct Branch
 
-### 1. Start from Clean State (CRITICAL!)
+**Option A: Local Testing (Recommended)**
 
 ```bash
-# Switch to main branch (before any IBAN work)
+# 1. Checkout main branch
 git checkout main
 
-# Verify you're on main
-git branch
-# Should show: * main
+# 2. Verify clean state
+git status  # Should be clean
+ls library/src/actions/iban/  # Should not exist
+ls test.sh  # Should not exist
 
-# Verify IBAN doesn't exist yet
-ls library/src/actions/iban/
-# Should show: No such file or directory
+# 3. Install dependencies
+pnpm install
 
-# Verify test.sh doesn't exist
-ls test.sh
-# Should show: No such file or directory
+# 4. Verify base tests pass BEFORE patches
+cd library && pnpm exec vitest run
+# Should show: ✅ 247 test files, 2712 tests passed
+
+# 5. Go back to root and apply test.patch
+cd ..
+git apply test.patch
+
+# 6. Run tests
+./test.sh base  # Should pass
+./test.sh new   # Should fail (expected - no iban.ts yet)
+
+# 7. Apply solution.patch
+git apply solution.patch
+
+# 8. Run tests again
+./test.sh base  # Should still pass
+./test.sh new   # Should now pass
 ```
 
-### 2. Build Docker Environment
+**Option B: Docker from Main Branch**
 
 ```bash
+# 1. Checkout main branch FIRST
+git checkout main
+
+# 2. Build Docker from main
 docker build -t valibot-iban-test .
 docker run -it valibot-iban-test
+
+# 3. Inside container, follow steps 4-8 from Option A
 ```
 
 ### 3. Inside Docker: Verify Base Tests Pass (Before Any Patches)
