@@ -172,10 +172,10 @@ index 00000000..29307f60
 +});
 diff --git a/test.sh b/test.sh
 new file mode 100755
-index 00000000..e2ed466b
+index 00000000..a66bbf66
 --- /dev/null
 +++ b/test.sh
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,31 @@
 +#!/bin/bash
 +
 +set -e
@@ -184,11 +184,15 @@ index 00000000..e2ed466b
 +  base)
 +    echo "Running base tests (excluding IBAN)..."
 +    cd library
-+    # Exclude IBAN tests and specific tests that fail due to missing iban.ts imports
++    # Exclude IBAN tests and tests affected by missing iban module
 +    pnpm exec vitest run \
 +      --exclude='**/iban/**' \
 +      --exclude='**/parseAsync.test.ts' \
-+      --exclude='**/_getStandardProps.test.ts'
++      --exclude='**/_getStandardProps.test.ts' \
++      --exclude='**/omit.test.ts' \
++      --exclude='**/pick.test.ts' \
++      --exclude='**/safeParserAsync.test.ts' \
++      --exclude='**/getDefaultsAsync.test.ts'
 +    ;;
 +  new)
 +    echo "Running new IBAN feature tests..."
