@@ -6,15 +6,17 @@ case "$1" in
   base)
     echo "Running base tests (excluding IBAN)..."
     cd library
-    # Temporarily hide iban directory and remove its export to prevent module resolution errors
+    # Temporarily move iban outside src to prevent vitest from discovering it
     if [ -d "src/actions/iban" ]; then
-      mv src/actions/iban src/actions/.iban-hidden
-      # Comment out the iban export line
+      mkdir -p /tmp/iban-backup
+      mv src/actions/iban /tmp/iban-backup/
+      # Remove the iban export line
       sed -i.bak "/export \* from '.\/iban\/index.ts'/d" src/actions/index.ts
       pnpm exec vitest run
       # Restore everything
       mv src/actions/index.ts.bak src/actions/index.ts
-      mv src/actions/.iban-hidden src/actions/iban
+      mv /tmp/iban-backup/iban src/actions/
+      rm -rf /tmp/iban-backup
     else
       pnpm exec vitest run
     fi
