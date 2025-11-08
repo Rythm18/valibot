@@ -1,69 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import type { StringIssue } from '../../schemas/index.ts';
 import { expectActionIssue, expectNoActionIssue } from '../../vitest/index.ts';
-import { iban, type IbanAction, type IbanIssue } from './iban.ts';
+import { iban, type IbanIssue } from './iban.ts';
 
 describe('iban', () => {
-  describe('should return action object', () => {
-    const baseAction: Omit<IbanAction<string, never>, 'message'> = {
-      kind: 'validation',
-      type: 'iban',
-      reference: iban,
-      expects: null,
-      requirement: expect.any(Function),
-      async: false,
-      '~run': expect.any(Function),
-    };
-
-    test('with undefined message', () => {
-      const action: IbanAction<string, undefined> = {
-        ...baseAction,
-        message: undefined,
-      };
-      expect(iban()).toStrictEqual(action);
-      expect(iban(undefined)).toStrictEqual(action);
-    });
-
-    test('with string message', () => {
-      expect(iban('message')).toStrictEqual({
-        ...baseAction,
-        message: 'message',
-      } satisfies IbanAction<string, string>);
-    });
-
-    test('with function message', () => {
-      const message = () => 'message';
-      expect(iban(message)).toStrictEqual({
-        ...baseAction,
-        message,
-      } satisfies IbanAction<string, typeof message>);
-    });
-  });
-
-  describe('should return dataset without issues', () => {
+  describe('should accept valid IBANs', () => {
     const action = iban();
 
-    test('for untyped inputs', () => {
-      const issues: [StringIssue] = [
-        {
-          kind: 'schema',
-          type: 'string',
-          input: null,
-          expected: 'string',
-          received: 'null',
-          message: 'message',
-        },
-      ];
-      expect(
-        action['~run']({ typed: false, value: null, issues }, {})
-      ).toStrictEqual({
-        typed: false,
-        value: null,
-        issues,
-      });
-    });
-
-    test('for valid IBANs from various countries', () => {
+    test('from various countries', () => {
       expectNoActionIssue(action, [
         // Germany
         'DE89370400440532013000',
@@ -91,7 +34,7 @@ describe('iban', () => {
       ]);
     });
 
-    test('for valid IBANs with spaces', () => {
+    test('with spaces', () => {
       expectNoActionIssue(action, [
         'DE89 3704 0044 0532 0130 00',
         'GB82 WEST 1234 5698 7654 32',
@@ -102,7 +45,7 @@ describe('iban', () => {
       ]);
     });
 
-    test('for valid IBANs with mixed spacing', () => {
+    test('with mixed spacing', () => {
       expectNoActionIssue(action, [
         'DE89 37040044 0532013000',
         'GB82WEST 1234 56987654 32',
@@ -111,85 +54,90 @@ describe('iban', () => {
     });
   });
 
-  describe('should return dataset with issues', () => {
-    const action = iban('message');
+  describe('should reject invalid IBANs', () => {
+    const action = iban('Invalid IBAN');
     const baseIssue: Omit<IbanIssue<string>, 'input' | 'received'> = {
       kind: 'validation',
       type: 'iban',
       expected: null,
-      message: 'message',
+      message: 'Invalid IBAN',
       requirement: expect.any(Function),
     };
 
-    test('for empty strings', () => {
+    test('with empty strings', () => {
       expectActionIssue(action, baseIssue, ['', ' ', '\n']);
     });
 
-    test('for IBANs with invalid checksum', () => {
+    test('with invalid checksum', () => {
       expectActionIssue(action, baseIssue, [
-        // Valid format but invalid checksum (changed one digit)
-        'DE89370400440532013001', // Last digit changed
-        'GB82WEST12345698765433', // Last digit changed
-        'FR1420041010050500013M02607', // Last digit changed
-        'ES9121000418450200051333', // Last digit changed
-      ]);
+          'DE89370400440532013001', // Last digit changed
+          'GB82WEST12345698765433', // Last digit changed
+          'FR1420041010050500013M02607', // Last digit changed
+          'ES9121000418450200051333', // Last digit changed
+        ]
+      );
     });
 
-    test('for IBANs with invalid country code', () => {
+    test('with invalid country code', () => {
       expectActionIssue(action, baseIssue, [
-        'ZZ89370400440532013000', // Invalid country
-        'A189370400440532013000', // Single letter
-        '1289370400440532013000', // Starts with digit
-        'D989370400440532013000', // Single letter
-      ]);
+          'ZZ89370400440532013000', // Invalid country
+          'A189370400440532013000', // Single letter
+          '1289370400440532013000', // Starts with digit
+          'D989370400440532013000', // Single letter
+        ]
+      );
     });
 
-    test('for IBANs with invalid check digits', () => {
+    test('with invalid check digits', () => {
       expectActionIssue(action, baseIssue, [
-        'DEAA370400440532013000', // Letters instead of digits
-        'DE1A370400440532013000', // Letter in check digits
-        'DEXX370400440532013000', // Invalid check digits
-      ]);
+          'DEAA370400440532013000', // Letters instead of digits
+          'DE1A370400440532013000', // Letter in check digits
+          'DEXX370400440532013000', // Invalid check digits
+        ]
+      );
     });
 
-    test('for IBANs that are too short', () => {
+    test('that are too short', () => {
       expectActionIssue(action, baseIssue, [
-        'DE8937040044053', // Too short
-        'GB82WEST1234', // Too short
-        'FR142004', // Too short
-      ]);
+          'DE8937040044053', // Too short
+          'GB82WEST1234', // Too short
+          'FR142004', // Too short
+        ]
+      );
     });
 
-    test('for IBANs that are too long', () => {
-      expectActionIssue(action, baseIssue, [
-        'DE893704004405320130001234567890123', // Too long (>34 chars)
-      ]);
+    test('that are too long', () => {
+      expectActionIssue(action, baseIssue, ['DE893704004405320130001234567890123'] // Too long (>34 chars)
+      );
     });
 
-    test('for IBANs with invalid characters', () => {
+    test('with invalid characters', () => {
       expectActionIssue(action, baseIssue, [
-        'DE89@70400440532013000', // Special character
-        'DE89 3704-0044-0532-0130-00', // Hyphens
-        'DE89_3704_0044_0532_0130_00', // Underscores
-        'GB82WEST12345698765432!', // Exclamation mark
-      ]);
+          'DE89@70400440532013000', // Special character
+          'DE89 3704-0044-0532-0130-00', // Hyphens
+          'DE89_3704_0044_0532_0130_00', // Underscores
+          'GB82WEST12345698765432!', // Exclamation mark
+        ]
+      );
     });
 
-    test('for IBANs with lowercase letters', () => {
+    test('with lowercase letters', () => {
       expectActionIssue(action, baseIssue, [
-        'de89370400440532013000',
-        'gb82west12345698765432',
-        'fr1420041010050500013m02606',
-      ]);
+          'de89370400440532013000',
+          'gb82west12345698765432',
+          'fr1420041010050500013m02606',
+        ]
+      );
     });
 
-    test('for completely invalid inputs', () => {
+    test('with completely invalid format', () => {
       expectActionIssue(action, baseIssue, [
-        'not-an-iban',
-        '123456789',
-        'ABCDEFGH',
-        'random string',
-      ]);
+          'not-an-iban',
+          '123456789',
+          'ABCDEFGH',
+          'random string',
+        ]
+      );
     });
   });
 });

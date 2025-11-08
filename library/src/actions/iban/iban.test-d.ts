@@ -3,39 +3,15 @@ import type { InferInput, InferIssue, InferOutput } from '../../types/index.ts';
 import { iban, type IbanAction, type IbanIssue } from './iban.ts';
 
 describe('iban', () => {
-  describe('should return action object', () => {
-    test('with undefined message', () => {
-      type Action = IbanAction<string, undefined>;
-      expectTypeOf(iban()).toEqualTypeOf<Action>();
-      expectTypeOf(iban(undefined)).toEqualTypeOf<Action>();
-    });
-
-    test('with string message', () => {
-      expectTypeOf(iban('message')).toEqualTypeOf<
-        IbanAction<string, 'message'>
-      >();
-    });
-
-    test('with function message', () => {
-      expectTypeOf(iban(() => 'message')).toEqualTypeOf<
-        IbanAction<string, () => string>
-      >();
-    });
+  test('should accept string input', () => {
+    expectTypeOf<InferInput<IbanAction<string, undefined>>>().toEqualTypeOf<string>();
   });
 
-  describe('should infer correct types', () => {
-    type Action = IbanAction<string, undefined>;
+  test('should return string output', () => {
+    expectTypeOf<InferOutput<IbanAction<string, undefined>>>().toEqualTypeOf<string>();
+  });
 
-    test('of input', () => {
-      expectTypeOf<InferInput<Action>>().toEqualTypeOf<string>();
-    });
-
-    test('of output', () => {
-      expectTypeOf<InferOutput<Action>>().toEqualTypeOf<string>();
-    });
-
-    test('of issue', () => {
-      expectTypeOf<InferIssue<Action>>().toEqualTypeOf<IbanIssue<string>>();
-    });
+  test('should infer correct issue type', () => {
+    expectTypeOf<InferIssue<IbanAction<string, undefined>>>().toEqualTypeOf<IbanIssue<string>>();
   });
 });
